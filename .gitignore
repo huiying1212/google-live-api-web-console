@@ -21,3 +21,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# large files/folders
+/models
+/public/DesignBook
+/vector_database
+/localData/__pycache__
