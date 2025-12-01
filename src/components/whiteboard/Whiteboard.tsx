@@ -247,8 +247,6 @@ export function Whiteboard() {
     }
 
     if (content.type === "images") {
-      const imageCount = content.images?.length || 0;
-
       return (
         <div className="whiteboard-content images">
           <div className="content-header">
@@ -347,6 +345,11 @@ export function Whiteboard() {
       </div>
     );
   };
+
+  // Only render the whiteboard wrapper when there is content
+  if (!content) {
+    return null;
+  }
 
   return (
     <div className="whiteboard-wrapper">
