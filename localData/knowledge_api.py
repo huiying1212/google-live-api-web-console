@@ -6,6 +6,7 @@
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Union, Any
 from contextlib import asynccontextmanager
@@ -33,10 +34,13 @@ async def lifespan(app: FastAPI):
         print("初始化多模态知识检索器...")
         # 允许通过环境变量覆盖模型ID或路径
         model_override = os.getenv("CLIP_MODEL_ID") or os.getenv("HF_CLIP_MODEL_ID") or "./models/clip-vit-base-patch32"
+        # 获取API基础URL（可通过环境变量配置）
+        api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
         retriever = MultimodalKnowledgeRetriever(
             database_dir="./vector_database",
             model_path=model_override,
-            device="auto"
+            device="auto",
+            api_base_url=api_base_url
         )
         print("检索器初始化完成")
     except Exception as e:
@@ -63,6 +67,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 配置静态文件服务 - 提供图片访问
+# 图片目录路径
+IMAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public", "DesignBook", "images")
+if os.path.exists(IMAGE_DIR):
+    app.mount("/images", StaticFiles(directory=IMAGE_DIR), name="images")
+    print(f"静态文件服务已配置: /images -> {IMAGE_DIR}")
+else:
+    print(f"警告: 图片目录不存在: {IMAGE_DIR}")
 
 class TextQueryRequest(BaseModel):
     query: str

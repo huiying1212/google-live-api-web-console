@@ -17,7 +17,7 @@ import re
 from typing import List, Dict, Union, Tuple
 
 class MultimodalKnowledgeRetriever:
-    def __init__(self, database_dir="./vector_database", model_path="./models/clip-vit-base-patch32", device="auto"):
+    def __init__(self, database_dir="./vector_database", model_path="./models/clip-vit-base-patch32", device="auto", api_base_url="http://localhost:8000"):
         """
         初始化多模态知识检索器
         
@@ -25,9 +25,11 @@ class MultimodalKnowledgeRetriever:
             database_dir: 向量数据库目录
             model_path: CLIP模型路径
             device: 计算设备
+            api_base_url: API服务器基础URL，用于构建图片访问路径
         """
         self.database_dir = database_dir
         self.device = self._get_device(device)
+        self.api_base_url = api_base_url
         
         # 加载配置
         config_file = os.path.join(database_dir, "database_config.json")
@@ -129,6 +131,36 @@ class MultimodalKnowledgeRetriever:
                 return int(match.group(1))
         
         return None
+    
+    def _convert_image_url(self, image_filename: str) -> str:
+        """
+        将图片文件名转换为完整的HTTP URL
+        
+        Args:
+            image_filename: 图片文件名或已经是完整URL
+            
+        Returns:
+            完整的图片URL
+        """
+        # 如果已经是完整URL，直接返回
+        if image_filename.startswith('http://') or image_filename.startswith('https://'):
+            return image_filename
+        # 否则转换为完整URL
+        return f"{self.api_base_url}/images/{image_filename}"
+    
+    def _process_image_result(self, result: Dict) -> Dict:
+        """
+        处理图片搜索结果，将文件名转换为完整URL
+        
+        Args:
+            result: 包含image_url的结果字典
+            
+        Returns:
+            处理后的结果字典
+        """
+        if 'image_url' in result:
+            result['image_url'] = self._convert_image_url(result['image_url'])
+        return result
     
     def encode_query_text(self, query: str) -> np.ndarray:
         """
@@ -240,7 +272,8 @@ class MultimodalKnowledgeRetriever:
         # 按提升后的分数排序
         results.sort(key=lambda x: x['similarity_score'], reverse=True)
         
-        return results[:top_k]
+        # 转换图片URL
+        return [self._process_image_result(r) for r in results[:top_k]]
     
     def search_images(self, query: str, top_k: int = 10, min_score: float = 0.15) -> List[Dict]:
         """
@@ -273,10 +306,10 @@ class MultimodalKnowledgeRetriever:
             # 按相似度排序
             chapter_results.sort(key=lambda x: x['similarity_score'], reverse=True)
             
-            # 如果找到章节图片，直接返回
+            # 如果找到章节图片，转换URL并返回
             if chapter_results:
                 print(f"图片搜索 - 找到章节{chapter_num}的{len(chapter_results)}张图片")
-                return chapter_results[:top_k]
+                return [self._process_image_result(r) for r in chapter_results[:top_k]]
         
         query_vector = self.encode_query_text(query)
         
@@ -331,7 +364,7 @@ class MultimodalKnowledgeRetriever:
             if score >= min_score and idx < len(self.image_metadata):
                 result = self.image_metadata[idx].copy()
                 result['similarity_score'] = float(score)
-                image_results.append(result)
+                image_results.append(self._process_image_result(result))
         
         # 搜索相关文本
         text_scores, text_indices = self.text_index.search(query_vector.astype('float32'), top_k)
@@ -449,6 +482,7 @@ class MultimodalKnowledgeRetriever:
         image_context = []
         for result in search_results['combined_results']:
             if result['type'] == 'image':
+                # image_url 已经在 search_images 方法中转换为完整URL，直接使用
                 image_context.append({
                     'image_url': result['image_url'],
                     'description': result['image_description'],
