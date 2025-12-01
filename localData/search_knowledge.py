@@ -13,6 +13,7 @@ from transformers import CLIPProcessor, CLIPModel
 import faiss
 import pickle
 import argparse
+import re
 from typing import List, Dict, Union, Tuple
 
 class MultimodalKnowledgeRetriever:
@@ -103,6 +104,32 @@ class MultimodalKnowledgeRetriever:
                 return "cpu"
         return device
     
+    def _extract_chapter_number(self, query: str) -> Union[int, None]:
+        """
+        从查询中提取章节编号
+        
+        Args:
+            query: 查询文本
+            
+        Returns:
+            章节编号，如果未找到则返回None
+        """
+        # 匹配各种章节表达方式
+        patterns = [
+            r'chapter\s+(\d+)',
+            r'第\s*(\d+)\s*章',
+            r'ch\s*\.?\s*(\d+)',
+            r'章节\s*(\d+)',
+        ]
+        
+        query_lower = query.lower()
+        for pattern in patterns:
+            match = re.search(pattern, query_lower)
+            if match:
+                return int(match.group(1))
+        
+        return None
+    
     def encode_query_text(self, query: str) -> np.ndarray:
         """
         编码查询文本
@@ -151,7 +178,7 @@ class MultimodalKnowledgeRetriever:
             
             return image_embedding.cpu().numpy()
     
-    def search_text(self, query: str, top_k: int = 5, min_score: float = 0.3) -> List[Dict]:
+    def search_text(self, query: str, top_k: int = 10, min_score: float = 0.15) -> List[Dict]:
         """
         在文本数据库中搜索
         
@@ -163,21 +190,59 @@ class MultimodalKnowledgeRetriever:
         Returns:
             搜索结果列表
         """
+        # 检查查询中是否包含章节编号
+        chapter_num = self._extract_chapter_number(query)
+        
+        if chapter_num is not None:
+            # 如果指定了章节，优先返回该章节的内容
+            chapter_results = []
+            for idx, metadata in enumerate(self.text_metadata):
+                if metadata.get('chapter_number') == chapter_num:
+                    result = metadata.copy()
+                    # 为该章节内容计算相似度
+                    query_vector = self.encode_query_text(query)
+                    text_vector = self.text_index.reconstruct(idx).reshape(1, -1)
+                    # 计算余弦相似度（内积，因为向量已归一化）
+                    score = float(np.dot(query_vector[0], text_vector[0]))
+                    result['similarity_score'] = score
+                    chapter_results.append(result)
+            
+            # 按相似度排序
+            chapter_results.sort(key=lambda x: x['similarity_score'], reverse=True)
+            
+            # 如果找到章节内容，直接返回
+            if chapter_results:
+                return chapter_results[:top_k]
+        
+        # 常规向量检索
         query_vector = self.encode_query_text(query)
         
-        # 在文本索引中搜索
-        scores, indices = self.text_index.search(query_vector.astype('float32'), top_k)
+        # 在文本索引中搜索，搜索更多结果以便后续过滤
+        search_k = top_k * 3 if chapter_num is not None else top_k
+        scores, indices = self.text_index.search(query_vector.astype('float32'), search_k)
         
         results = []
         for score, idx in zip(scores[0], indices[0]):
-            if score >= min_score and idx < len(self.text_metadata):
+            if idx < len(self.text_metadata):
                 result = self.text_metadata[idx].copy()
-                result['similarity_score'] = float(score)
-                results.append(result)
+                original_score = float(score)
+                
+                # 如果查询包含章节编号，提升匹配章节的分数
+                if chapter_num is not None and result.get('chapter_number') == chapter_num:
+                    # 大幅提升匹配章节的分数
+                    original_score = original_score * 2.0 + 0.5
+                
+                result['similarity_score'] = original_score
+                
+                if original_score >= min_score:
+                    results.append(result)
         
-        return results
+        # 按提升后的分数排序
+        results.sort(key=lambda x: x['similarity_score'], reverse=True)
+        
+        return results[:top_k]
     
-    def search_images(self, query: str, top_k: int = 5, min_score: float = 0.2) -> List[Dict]:
+    def search_images(self, query: str, top_k: int = 10, min_score: float = 0.15) -> List[Dict]:
         """
         在图片数据库中搜索（使用文本查询）
         
@@ -189,10 +254,35 @@ class MultimodalKnowledgeRetriever:
         Returns:
             搜索结果列表
         """
+        # 检查查询中是否包含章节编号
+        chapter_num = self._extract_chapter_number(query)
+        
+        if chapter_num is not None:
+            # 如果指定了章节，优先返回该章节的图片
+            chapter_results = []
+            for idx, metadata in enumerate(self.image_metadata):
+                if metadata.get('chapter_number') == chapter_num:
+                    result = metadata.copy()
+                    # 为该章节图片计算相似度
+                    query_vector = self.encode_query_text(query)
+                    image_vector = self.image_index.reconstruct(idx).reshape(1, -1)
+                    score = float(np.dot(query_vector[0], image_vector[0]))
+                    result['similarity_score'] = score
+                    chapter_results.append(result)
+            
+            # 按相似度排序
+            chapter_results.sort(key=lambda x: x['similarity_score'], reverse=True)
+            
+            # 如果找到章节图片，直接返回
+            if chapter_results:
+                print(f"图片搜索 - 找到章节{chapter_num}的{len(chapter_results)}张图片")
+                return chapter_results[:top_k]
+        
         query_vector = self.encode_query_text(query)
         
-        # 在图片索引中搜索
-        scores, indices = self.image_index.search(query_vector.astype('float32'), top_k)
+        # 在图片索引中搜索，搜索更多结果以便后续过滤
+        search_k = top_k * 3 if chapter_num is not None else top_k
+        scores, indices = self.image_index.search(query_vector.astype('float32'), search_k)
         
         print(f"图片搜索 - 查询: {query}")
         print(f"得分: {scores[0][:3]}")  # 显示前3个得分
@@ -200,17 +290,27 @@ class MultimodalKnowledgeRetriever:
         
         results = []
         for score, idx in zip(scores[0], indices[0]):
-            if idx < len(self.image_metadata):  # 移除最小分数限制进行调试
+            if idx < len(self.image_metadata):
                 result = self.image_metadata[idx].copy()
-                result['similarity_score'] = float(score)
-                if score >= min_score:  # 只在达到阈值时才添加
+                original_score = float(score)
+                
+                # 如果查询包含章节编号，提升匹配章节的分数
+                if chapter_num is not None and result.get('chapter_number') == chapter_num:
+                    original_score = original_score * 2.0 + 0.5
+                
+                result['similarity_score'] = original_score
+                
+                if original_score >= min_score:
                     results.append(result)
-                print(f"图片 {idx}: 得分={score:.3f}, 阈值={min_score}, 包含={'是' if score >= min_score else '否'}")
+                print(f"图片 {idx}: 得分={original_score:.3f}, 阈值={min_score}, 包含={'是' if original_score >= min_score else '否'}")
+        
+        # 按提升后的分数排序
+        results.sort(key=lambda x: x['similarity_score'], reverse=True)
         
         print(f"图片搜索结果数量: {len(results)}")
-        return results
+        return results[:top_k]
     
-    def search_by_image(self, image_path: str, top_k: int = 5, min_score: float = 0.3) -> Tuple[List[Dict], List[Dict]]:
+    def search_by_image(self, image_path: str, top_k: int = 10, min_score: float = 0.15) -> Tuple[List[Dict], List[Dict]]:
         """
         使用图片查询（图片到图片，图片到文本）
         
@@ -244,7 +344,7 @@ class MultimodalKnowledgeRetriever:
         
         return image_results, text_results
     
-    def multimodal_search(self, query: str, top_k: int = 10, text_weight: float = 0.5, image_weight: float = 0.5) -> Dict:
+    def multimodal_search(self, query: str, top_k: int = 15, text_weight: float = 0.5, image_weight: float = 0.5) -> Dict:
         """
         多模态综合搜索
         
@@ -326,7 +426,7 @@ class MultimodalKnowledgeRetriever:
         Returns:
             RAG上下文信息
         """
-        search_results = self.multimodal_search(query, top_k=10, text_weight=0.5, image_weight=0.5)
+        search_results = self.multimodal_search(query, top_k=15, text_weight=0.5, image_weight=0.5)
         
         # 提取文本上下文
         text_context = []
@@ -339,7 +439,7 @@ class MultimodalKnowledgeRetriever:
                     text_context.append({
                         'content': text_content,
                         'source': f"Chapter {result['chapter_number']}: {result['chapter_name']}",
-                        'similarity': result['weighted_score']
+                        'similarity': result.get('similarity_score', result.get('weighted_score', 0))
                     })
                     current_length += len(text_content)
                 else:
@@ -353,7 +453,7 @@ class MultimodalKnowledgeRetriever:
                     'image_url': result['image_url'],
                     'description': result['image_description'],
                     'source': f"Chapter {result['chapter_number']}: {result['chapter_name']}",
-                    'similarity': result['weighted_score']
+                    'similarity': result.get('similarity_score', result.get('weighted_score', 0))
                 })
         
         return {

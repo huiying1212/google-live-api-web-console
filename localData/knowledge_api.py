@@ -66,8 +66,8 @@ app.add_middleware(
 
 class TextQueryRequest(BaseModel):
     query: str
-    top_k: int = 5
-    min_score: float = 0.3
+    top_k: int = 15
+    min_score: float = 0.15
     mode: str = "multimodal"  # text, image, multimodal, rag
 
 class SearchResponse(BaseModel):
@@ -149,8 +149,8 @@ async def search_text_endpoint(request: TextQueryRequest):
 @app.post("/search/image", response_model=SearchResponse)
 async def search_by_image_endpoint(
     file: UploadFile = File(...),
-    top_k: int = Form(5),
-    min_score: float = Form(0.3)
+    top_k: int = Form(15),
+    min_score: float = Form(0.15)
 ):
     """图片搜索接口"""
     if retriever is None:

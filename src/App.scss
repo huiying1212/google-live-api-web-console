@@ -170,4 +170,20 @@ body {
   max-width: 90%;
   border-radius: 32px;
   max-height: fit-content;
+  transition: all 0.3s ease-in-out;
+  z-index: 1;
+
+  &.stream-minimized {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    max-width: 300px;
+    width: 300px;
+    max-height: 225px;
+    height: auto;
+    flex-grow: 0;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+  }
 }

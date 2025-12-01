@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import "./App.scss";
 import { LiveAPIProvider } from "./contexts/LiveAPIContext";
 import SidePanel from "./components/side-panel/SidePanel";
-import { Altair } from "./components/altair/Altair";
+import { AIAssistant } from "./components/ai-assistant/AIAssistant";
 import ControlTray from "./components/control-tray/ControlTray";
 import cn from "classnames";
 import { LiveClientOptions } from "./types";
@@ -38,6 +38,21 @@ function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   // either the screen capture, the video or null, if null we hide it
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  // track whether whiteboard has content
+  const [whiteboardHasContent, setWhiteboardHasContent] = useState<boolean>(false);
+
+  // Listen for whiteboard content changes
+  useEffect(() => {
+    const handleWhiteboardChange = (event: CustomEvent) => {
+      setWhiteboardHasContent(event.detail.hasContent);
+    };
+
+    window.addEventListener('whiteboardContentChange', handleWhiteboardChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('whiteboardContentChange', handleWhiteboardChange as EventListener);
+    };
+  }, []);
 
   return (
     <div className="App">
@@ -47,10 +62,11 @@ function App() {
           <main>
             <div className="main-app-area">
               {/* APP goes here */}
-              <Altair />
+              <AIAssistant />
               <video
                 className={cn("stream", {
                   hidden: !videoRef.current || !videoStream,
+                  "stream-minimized": whiteboardHasContent && videoStream,
                 })}
                 ref={videoRef}
                 autoPlay
