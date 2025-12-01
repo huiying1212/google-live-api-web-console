@@ -86,46 +86,45 @@ export function KnowledgeRetrieval({
 
           if (result.success) {
             responses.push({
-              response: { output: result.data },
               id: fc.id,
               name: fc.name,
+              response: { 
+                output: result.data,
+              },
             });
           } else {
             responses.push({
+              id: fc.id,
+              name: fc.name,
               response: {
                 output: {
                   error: "Failed to retrieve knowledge",
                   message: result.message,
                 },
               },
-              id: fc.id,
-              name: fc.name,
             });
           }
         } catch (error) {
           console.error("Error calling knowledge API:", error);
           responses.push({
+            id: fc.id,
+            name: fc.name,
             response: {
               output: {
                 error: "Failed to connect to knowledge API",
                 details: String(error),
               },
             },
-            id: fc.id,
-            name: fc.name,
           });
         }
       }
 
       // Send responses for knowledge retrieval calls
+      // No setTimeout needed for async operations - send immediately when ready
       if (responses.length > 0) {
-        setTimeout(
-          () =>
-            client.sendToolResponse({
-              functionResponses: responses,
-            }),
-          200
-        );
+        client.sendToolResponse({
+          functionResponses: responses,
+        });
       }
     };
 

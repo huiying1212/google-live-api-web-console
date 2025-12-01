@@ -62,21 +62,19 @@ function AltairComponent() {
         const str = (fc.args as any).json_graph;
         setJSONString(str);
         responses.push({
-          response: { output: { success: true } },
           id: fc.id,
           name: fc.name,
+          response: { 
+            output: { success: true },
+          },
         });
       }
 
-      // Send responses for altair calls
+      // Send responses for altair calls immediately (synchronous UI update)
       if (responses.length > 0) {
-        setTimeout(
-          () =>
-            client.sendToolResponse({
-              functionResponses: responses,
-            }),
-          200
-        );
+        client.sendToolResponse({
+          functionResponses: responses,
+        });
       }
     };
 

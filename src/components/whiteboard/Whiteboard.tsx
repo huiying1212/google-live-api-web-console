@@ -139,21 +139,19 @@ export function Whiteboard() {
         setSlides((prevSlides) => [...prevSlides, newContent]);
 
         responses.push({
-          response: { output: { success: true } },
           id: fc.id,
           name: fc.name,
+          response: { 
+            output: { success: true },
+          },
         });
       }
 
-      // Send responses for display calls
+      // Send responses for display calls immediately (synchronous UI update)
       if (responses.length > 0) {
-        setTimeout(
-          () =>
-            client.sendToolResponse({
-              functionResponses: responses,
-            }),
-          200
-        );
+        client.sendToolResponse({
+          functionResponses: responses,
+        });
       }
     };
 
