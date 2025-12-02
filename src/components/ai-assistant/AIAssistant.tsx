@@ -61,7 +61,7 @@ MULTI-SPEAKER AWARENESS AND PARALINGUISTIC UNDERSTANDING:
   knowledgeTopK = 5,
   knowledgeMinScore = 0.3,
 }: AIAssistantProps) {
-  const { setConfig, setModel } = useLiveAPIContext();
+  const { setConfig, setModel, client, connected } = useLiveAPIContext();
 
   useEffect(() => {
     setModel(model);
@@ -97,6 +97,14 @@ MULTI-SPEAKER AWARENESS AND PARALINGUISTIC UNDERSTANDING:
       tools,
     });
   }, [setConfig, setModel, model, voiceName, systemInstruction, enableGoogleSearch]);
+
+  // Send initial greeting when connection is established
+  useEffect(() => {
+    if (connected) {
+      // Send a greeting message to trigger the model to speak first
+      client.send([{ text: '你好，我是你的学习小助手，如果你有任何需要我帮助的地方，说"hi gemini"。' }], true);
+    }
+  }, [connected, client]);
 
   return (
     <>
