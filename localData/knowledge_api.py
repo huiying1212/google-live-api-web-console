@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     try:
         print("初始化多模态知识检索器...")
         # 允许通过环境变量覆盖模型ID或路径
-        model_override = os.getenv("CLIP_MODEL_ID") or os.getenv("HF_CLIP_MODEL_ID") or "./models/clip-vit-base-patch32"
+        model_override = os.getenv("CLIP_MODEL_ID") or os.getenv("HF_CLIP_MODEL_ID") or "./models/clip-vit-h-14"
         # 获取API基础URL（可通过环境变量配置）
         api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
         retriever = MultimodalKnowledgeRetriever(
@@ -62,7 +62,8 @@ app = FastAPI(
 # 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Next.js默认端口
+    # allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Next.js默认端口
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

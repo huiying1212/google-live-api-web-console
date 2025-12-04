@@ -17,7 +17,7 @@ import re
 from typing import List, Dict, Union, Tuple
 
 class MultimodalKnowledgeRetriever:
-    def __init__(self, database_dir="./vector_database", model_path="./models/clip-vit-base-patch32", device="auto", api_base_url="http://localhost:8000"):
+    def __init__(self, database_dir="./vector_database", model_path="./models/clip-vit-h-14", device="auto", api_base_url="http://localhost:8000"):
         """
         初始化多模态知识检索器
         
@@ -93,7 +93,7 @@ class MultimodalKnowledgeRetriever:
             return model_path
         
         # 4) 最终回退：默认Hub模型
-        default_id = "openai/clip-vit-base-patch32"
+        default_id = "openai/clip-vit-h-14"
         print(f"未找到本地模型，回退到Hub模型: {default_id}")
         return default_id
     
@@ -505,7 +505,7 @@ def main():
     parser = argparse.ArgumentParser(description="多模态知识检索")
     parser.add_argument("--database_dir", default="./vector_database", 
                       help="向量数据库目录")
-    parser.add_argument("--model_path", default="./models/clip-vit-base-patch32", 
+    parser.add_argument("--model_path", default="./models/clip-vit-h-14", 
                       help="CLIP模型路径")
     parser.add_argument("--query", required=True, help="查询文本")
     parser.add_argument("--top_k", type=int, default=5, help="返回结果数量")

@@ -17,7 +17,7 @@ import argparse
 from pathlib import Path
 
 class MultimodalVectorDatabase:
-    def __init__(self, model_path="./models/clip-vit-base-patch32", device="auto"):
+    def __init__(self, model_path="./models/clip-vit-h-14", device="auto"):
         """
         初始化多模态向量数据库
         
@@ -25,14 +25,18 @@ class MultimodalVectorDatabase:
             model_path: 本地CLIP模型路径
             device: 计算设备 ("auto", "cuda", "cpu")
         """
+        self.model_path = model_path
         self.device = self._get_device(device)
         print(f"使用设备: {self.device}")
         
         # 加载本地CLIP模型
-        print("加载CLIP模型...")
+        print("=" * 60)
+        print("正在加载嵌入模型...")
+        print(f"模型路径: {model_path}")
         try:
             # 优先使用safetensors格式以避免安全问题
             self.model = CLIPModel.from_pretrained(model_path, use_safetensors=True)
+            print("✓ 使用 safetensors 格式加载")
         except:
             # 如果safetensors不可用，降级使用普通格式
             print("Safetensors不可用，使用普通格式...")
@@ -42,9 +46,18 @@ class MultimodalVectorDatabase:
         self.model.to(self.device)
         self.model.eval()
         
-        # 获取嵌入维度
+        # 获取嵌入维度和模型信息
         self.embedding_dim = self.model.config.projection_dim
+        model_type = self.model.config.model_type if hasattr(self.model.config, 'model_type') else "CLIP"
+        
+        # 显示模型详细信息
+        print(f"✓ 模型加载成功")
+        print(f"模型类型: {model_type.upper()}")
+        print(f"模型架构: {self.model.config.architectures[0] if hasattr(self.model.config, 'architectures') else 'CLIP'}")
         print(f"嵌入维度: {self.embedding_dim}")
+        print(f"视觉编码器: {self.model.config.vision_config.model_type if hasattr(self.model.config, 'vision_config') else 'ViT'}")
+        print(f"文本编码器: {self.model.config.text_config.model_type if hasattr(self.model.config, 'text_config') else 'Transformer'}")
+        print("=" * 60)
         
         # 初始化FAISS索引
         self.text_index = faiss.IndexFlatIP(self.embedding_dim)  # 内积相似度
@@ -153,7 +166,10 @@ class MultimodalVectorDatabase:
         Args:
             content_file: 文本内容JSON文件路径
         """
+        print("\n" + "=" * 60)
         print("构建文本向量数据库...")
+        print(f"使用嵌入模型进行文本编码: {self.model_path}")
+        print("=" * 60)
         
         # 读取文本数据（支持 JSONL 格式）
         content_data = []
@@ -243,7 +259,10 @@ class MultimodalVectorDatabase:
             image_file: 图片元数据JSON文件路径
             image_dir: 图片目录路径
         """
+        print("\n" + "=" * 60)
         print("构建图片向量数据库...")
+        print(f"使用嵌入模型进行图片编码: {self.model_path}")
+        print("=" * 60)
         
         # 读取图片元数据
         with open(image_file, 'r', encoding='utf-8') as f:
@@ -311,19 +330,29 @@ class MultimodalVectorDatabase:
             pickle.dump(self.image_metadata, f)
         
         # 保存配置信息
+        model_type = self.model.config.model_type if hasattr(self.model.config, 'model_type') else "CLIP"
+        model_architecture = self.model.config.architectures[0] if hasattr(self.model.config, 'architectures') else 'CLIPModel'
+        
         config = {
             'embedding_dim': self.embedding_dim,
             'text_count': len(self.text_metadata),
             'image_count': len(self.image_metadata),
-            'model_path': "./models/clip-vit-base-patch32"
+            'model_path': self.model_path,
+            'model_type': model_type,
+            'model_architecture': model_architecture
         }
         
         with open(os.path.join(output_dir, "database_config.json"), 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
         
-        print(f"向量数据库已保存到: {output_dir}")
+        print("=" * 60)
+        print(f"✓ 向量数据库已保存到: {output_dir}")
+        print(f"使用的嵌入模型: {model_architecture}")
+        print(f"模型路径: {self.model_path}")
+        print(f"嵌入维度: {self.embedding_dim}")
         print(f"文本片段数量: {len(self.text_metadata)}")
         print(f"图片数量: {len(self.image_metadata)}")
+        print("=" * 60)
 
 def main():
     parser = argparse.ArgumentParser(description="构建多模态向量数据库")
@@ -331,7 +360,7 @@ def main():
                       help="知识库数据目录")
     parser.add_argument("--output_dir", default="./vector_database", 
                       help="输出目录")
-    parser.add_argument("--model_path", default="./models/clip-vit-base-patch32", 
+    parser.add_argument("--model_path", default="./models/clip-vit-h-14", 
                       help="CLIP模型路径")
     parser.add_argument("--device", default="auto", choices=["auto", "cuda", "cpu"],
                       help="计算设备")
@@ -359,6 +388,15 @@ def main():
         print(f"错误: CLIP模型目录不存在: {args.model_path}")
         return
     
+    print("\n" + "=" * 60)
+    print("开始构建多模态向量数据库")
+    print("=" * 60)
+    print(f"数据目录: {args.data_dir}")
+    print(f"输出目录: {args.output_dir}")
+    print(f"嵌入模型: {args.model_path}")
+    print(f"计算设备: {args.device}")
+    print("=" * 60 + "\n")
+    
     # 构建向量数据库
     db = MultimodalVectorDatabase(args.model_path, args.device)
     
@@ -371,7 +409,9 @@ def main():
     # 保存数据库
     db.save_database(args.output_dir)
     
-    print("多模态向量数据库构建完成!")
+    print("\n" + "=" * 60)
+    print("✓ 多模态向量数据库构建完成!")
+    print("=" * 60)
 
 if __name__ == "__main__":
     main() 
