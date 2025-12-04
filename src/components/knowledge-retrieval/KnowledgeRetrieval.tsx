@@ -23,16 +23,30 @@ import {
 
 export const retrieveKnowledgeDeclaration: FunctionDeclaration = {
   name: "retrieve_knowledge",
-  description: "Retrieves relevant knowledge from the local vector database using RAG (Retrieval-Augmented Generation). The knowledge base contains primarily ENGLISH content about design history. IMPORTANT: If the user's question is in Chinese, you MUST translate the search query to English before calling this function for better retrieval accuracy.",
+  description: `Retrieves knowledge from the local knowledge base about design history. Supports three query types:
+- "search": Semantic search for specific content (default). The knowledge base contains primarily ENGLISH content, so translate Chinese queries to English.
+- "chapters": Get list of all available chapters with statistics (no query needed).
+- "chapter_content": Get all content from a specific chapter (requires chapter_number).`,
   parameters: {
     type: Type.OBJECT,
     properties: {
+      query_type: {
+        type: Type.STRING,
+        description: `The type of query to perform:
+- "search": Search for specific content using semantic search (default)
+- "chapters": Get the table of contents / list of all chapters
+- "chapter_content": Get all content from a specific chapter`,
+      },
       query: {
         type: Type.STRING,
-        description: "The search query in ENGLISH to find relevant information in the knowledge base. If the user asks in Chinese, translate key terms to English first.",
+        description: "The search query in ENGLISH. Required only when query_type is 'search'. If user asks in Chinese, translate key terms to English first.",
+      },
+      chapter_number: {
+        type: Type.INTEGER,
+        description: "The chapter number to retrieve. Required only when query_type is 'chapter_content'.",
       },
     },
-    required: ["query"],
+    required: [],
   },
 };
 
@@ -66,22 +80,81 @@ export function KnowledgeRetrieval({
       const responses: any[] = [];
 
       for (const fc of knowledgeCalls) {
-        const query = (fc.args as any).query;
-        try {
-          // Call the local knowledge API
-          const response = await fetch(apiUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              query: query,
-              top_k: topK,
-              min_score: minScore,
-              mode: "rag",
-            }),
-          });
+        const args = fc.args as any;
+        const queryType = args.query_type || "search";
+        const query = args.query;
+        const chapterNumber = args.chapter_number;
 
+        try {
+          // Extract base URL from apiUrl (remove /search/text if present)
+          const baseUrl = apiUrl.replace(/\/search\/text$/, "");
+          
+          let response: Response;
+          let requestDescription: string;
+
+          // Smart routing based on query_type
+          if (queryType === "chapters") {
+            // Get list of all chapters
+            requestDescription = "获取章节列表";
+            response = await fetch(`${baseUrl}/search/chapters`, {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+          } else if (queryType === "chapter_content") {
+            // Get content from specific chapter
+            if (chapterNumber === undefined) {
+              responses.push({
+                id: fc.id,
+                name: fc.name,
+                response: {
+                  output: {
+                    error: "Missing chapter_number",
+                    message: "chapter_number is required when query_type is 'chapter_content'",
+                  },
+                },
+              });
+              continue;
+            }
+            requestDescription = `获取第${chapterNumber}章内容`;
+            response = await fetch(`${baseUrl}/search/chapter/${chapterNumber}`, {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+          } else {
+            // Default: semantic search
+            if (!query) {
+              responses.push({
+                id: fc.id,
+                name: fc.name,
+                response: {
+                  output: {
+                    error: "Missing query",
+                    message: "query is required when query_type is 'search'",
+                  },
+                },
+              });
+              continue;
+            }
+            requestDescription = `搜索: ${query}`;
+            response = await fetch(`${baseUrl}/search/text`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                query: query,
+                top_k: topK,
+                min_score: minScore,
+                mode: "rag",
+              }),
+            });
+          }
+
+          console.log(`Knowledge API - ${requestDescription}`);
           const result = await response.json();
 
           if (result.success) {
