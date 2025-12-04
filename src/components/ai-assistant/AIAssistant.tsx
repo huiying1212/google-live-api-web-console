@@ -57,7 +57,7 @@ MULTI-SPEAKER AWARENESS AND PARALINGUISTIC UNDERSTANDING:
 
 `,
   enableGoogleSearch = true,
-  knowledgeApiUrl = "http://localhost:8000/search/text",
+  knowledgeApiUrl = "http://10.20.104.250:8000/search/text",
   knowledgeTopK = 5,
   knowledgeMinScore = 0.3,
 }: AIAssistantProps) {
