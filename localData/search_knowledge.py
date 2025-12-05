@@ -483,10 +483,11 @@ class MultimodalKnowledgeRetriever:
         for result in search_results['combined_results']:
             if result['type'] == 'image':
                 # image_url 已经在 search_images 方法中转换为完整URL，直接使用
+                # 使用 'url' 和 'chapter' 字段名以匹配前端 Whiteboard 组件的期望格式
                 image_context.append({
-                    'image_url': result['image_url'],
+                    'url': result['image_url'],
                     'description': result['image_description'],
-                    'source': f"Chapter {result['chapter_number']}: {result['chapter_name']}",
+                    'chapter': f"Chapter {result['chapter_number']}: {result['chapter_name']}",
                     'similarity': result.get('similarity_score', result.get('weighted_score', 0))
                 })
         
