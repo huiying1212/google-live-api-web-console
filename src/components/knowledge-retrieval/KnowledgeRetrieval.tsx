@@ -57,7 +57,7 @@ interface KnowledgeRetrievalProps {
 }
 
 export function KnowledgeRetrieval({
-  apiUrl = "http://localhost:8000/search/text",
+  apiUrl = "/search/text",
   topK = 5,
   minScore = 0.3,
 }: KnowledgeRetrievalProps) {

@@ -341,7 +341,8 @@ class MultimodalKnowledgeRetriever:
         results.sort(key=lambda x: x['similarity_score'], reverse=True)
         
         print(f"图片搜索结果数量: {len(results)}")
-        return results[:top_k]
+        # 转换图片URL为完整的HTTP URL
+        return [self._process_image_result(r) for r in results[:top_k]]
     
     def search_by_image(self, image_path: str, top_k: int = 10, min_score: float = 0.15) -> Tuple[List[Dict], List[Dict]]:
         """

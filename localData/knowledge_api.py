@@ -257,9 +257,10 @@ async def get_chapter_content(chapter_number: int):
             if item['chapter_number'] == chapter_number
         ]
         
-        # 获取该章节的图片
+        # 获取该章节的图片并转换URL为完整HTTP路径
         chapter_images = [
-            item for item in retriever.image_metadata 
+            retriever._process_image_result(item.copy())
+            for item in retriever.image_metadata 
             if item['chapter_number'] == chapter_number
         ]
         

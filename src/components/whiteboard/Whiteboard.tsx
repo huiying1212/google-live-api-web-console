@@ -125,6 +125,7 @@ export function Whiteboard() {
       for (const fc of displayCalls) {
         const args = fc.args as any;
         console.log("Displaying content on whiteboard:", args);
+        console.log("Images received:", args.images);
 
         const newContent: WhiteboardContent = {
           title: args.title || "",
