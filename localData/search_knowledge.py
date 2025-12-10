@@ -17,7 +17,7 @@ import re
 from typing import List, Dict, Union, Tuple
 
 class MultimodalKnowledgeRetriever:
-    def __init__(self, database_dir="./vector_database", model_path="./models/clip-vit-h-14", device="auto", api_base_url="http://localhost:8000"):
+    def __init__(self, database_dir="./vector_database", model_path="./models/clip-vit-h-14", device="auto", api_base_url="http://10.20.104.250:8000"):
         """
         初始化多模态知识检索器
         

@@ -24,33 +24,37 @@ import "./whiteboard.scss";
 
 export const displayContentDeclaration: FunctionDeclaration = {
   name: "display_content",
-  description: "Displays content on the whiteboard including text, lists, charts, or images with RAG-retrieved knowledge.",
+  description: `Displays content on the whiteboard. IMPORTANT: You MUST provide actual content based on the type:
+- For type="text": MUST include 'content' with the main text
+- For type="list": MUST include 'items' array with bullet points
+- For type="images": MUST include 'images' array with image objects
+Never call this function with just a title - always include substantive content.`,
   parameters: {
     type: Type.OBJECT,
     properties: {
       title: {
         type: Type.STRING,
-        description: "The title of the content to display",
+        description: "The title of the content to display (keep it short)",
       },
       content: {
         type: Type.STRING,
-        description: "The main text content to display",
+        description: "REQUIRED for type='text': The main text content to display. Must not be empty.",
       },
       type: {
         type: Type.STRING,
-        description: "The type of content: 'text', 'list', 'chart', 'images'",
-        enum: ["text", "list", "chart", "images"],
+        description: "The type of content",
+        enum: ["text", "list", "images"],
       },
       items: {
         type: Type.ARRAY,
-        description: "Array of items for list type",
+        description: "REQUIRED for type='list': Array of bullet point strings. Must have at least 1 item.",
         items: {
           type: Type.STRING,
         },
       },
       images: {
         type: Type.ARRAY,
-        description: "Array of image objects with url, description, and chapter",
+        description: "REQUIRED for type='images': Array of image objects from RAG results.",
         items: {
           type: Type.OBJECT,
           properties: {
