@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
         # 允许通过环境变量覆盖模型ID或路径
         model_override = os.getenv("CLIP_MODEL_ID") or os.getenv("HF_CLIP_MODEL_ID") or "./models/clip-vit-h-14"
         # 获取API基础URL（可通过环境变量配置）
-        api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+        api_base_url = os.getenv("API_BASE_URL", "http://10.20.104.250:8000")
         retriever = MultimodalKnowledgeRetriever(
             database_dir="./vector_database",
             model_path=model_override,

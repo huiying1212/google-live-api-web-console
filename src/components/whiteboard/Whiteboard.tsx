@@ -24,37 +24,38 @@ import "./whiteboard.scss";
 
 export const displayContentDeclaration: FunctionDeclaration = {
   name: "display_content",
-  description: `Displays content on the whiteboard. IMPORTANT: You MUST provide actual content based on the type:
-- For type="text": MUST include 'content' with the main text
-- For type="list": MUST include 'items' array with bullet points
-- For type="images": MUST include 'images' array with image objects
-Never call this function with just a title - always include substantive content.`,
+  description: `Displays CONCISE content on the whiteboard. CRITICAL RULES:
+- Content must be SHORT and FIT ON ONE SCREEN without scrolling
+- For type="text": content must be 1-3 sentences MAX (under 100 words)
+- For type="list": items array must have 3-5 items MAX, each item under 15 words
+- Titles should be under 8 words
+- Focus on KEY POINTS only, not detailed explanations (save details for verbal explanation)`,
   parameters: {
     type: Type.OBJECT,
     properties: {
       title: {
         type: Type.STRING,
-        description: "The title of the content to display (keep it short)",
+        description: "Short title (under 8 words)",
       },
       content: {
         type: Type.STRING,
-        description: "REQUIRED for type='text': The main text content to display. Must not be empty.",
+        description: "REQUIRED for type='text': Brief summary in 1-3 sentences (under 100 words). Must not be empty.",
       },
       type: {
         type: Type.STRING,
-        description: "The type of content",
+        description: "Content type",
         enum: ["text", "list", "images"],
       },
       items: {
         type: Type.ARRAY,
-        description: "REQUIRED for type='list': Array of bullet point strings. Must have at least 1 item.",
+        description: "REQUIRED for type='list': 3-5 bullet points, each under 15 words",
         items: {
           type: Type.STRING,
         },
       },
       images: {
         type: Type.ARRAY,
-        description: "REQUIRED for type='images': Array of image objects from RAG results.",
+        description: "Array of image objects from RAG results",
         items: {
           type: Type.OBJECT,
           properties: {
@@ -64,11 +65,11 @@ Never call this function with just a title - always include substantive content.
             },
             description: {
               type: Type.STRING,
-              description: "Description of the image",
+              description: "Brief description (under 10 words)",
             },
             chapter: {
               type: Type.STRING,
-              description: "Source chapter of the image",
+              description: "Source chapter",
             },
           },
         },
@@ -129,7 +130,6 @@ export function Whiteboard() {
       for (const fc of displayCalls) {
         const args = fc.args as any;
         console.log("Displaying content on whiteboard:", args);
-        console.log("Images received:", args.images);
 
         const newContent: WhiteboardContent = {
           title: args.title || "",
@@ -144,19 +144,21 @@ export function Whiteboard() {
         setSlides((prevSlides) => [...prevSlides, newContent]);
 
         responses.push({
+          response: { output: { success: true } },
           id: fc.id,
           name: fc.name,
-          response: { 
-            output: { success: true },
-          },
         });
       }
 
-      // Send responses for display calls immediately (synchronous UI update)
+      // Send responses for display calls
       if (responses.length > 0) {
-        client.sendToolResponse({
-          functionResponses: responses,
-        });
+        setTimeout(
+          () =>
+            client.sendToolResponse({
+              functionResponses: responses,
+            }),
+          200
+        );
       }
     };
 
@@ -250,6 +252,8 @@ export function Whiteboard() {
     }
 
     if (content.type === "images") {
+      const imageCount = content.images?.length || 0;
+
       return (
         <div className="whiteboard-content images">
           <div className="content-header">
@@ -348,11 +352,6 @@ export function Whiteboard() {
       </div>
     );
   };
-
-  // Only render the whiteboard wrapper when there is content
-  if (!content) {
-    return null;
-  }
 
   return (
     <div className="whiteboard-wrapper">
